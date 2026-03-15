@@ -8,8 +8,9 @@ import os
 import re
 
 import pandas as pd
+from sklearn.base import clone
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_squared_error
 from sklearn.pipeline import Pipeline
@@ -18,6 +19,14 @@ from sklearn.preprocessing import OneHotEncoder
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BENCHMARK_BASE = os.path.join(ROOT, "data", "benchmarks", "public_projections")
+CURRENT_SEASON_PATH = os.path.join(
+    ROOT,
+    "data",
+    "external",
+    "current_season",
+    "2026-03-15",
+    "current_season_external_competition_aligned_2026.csv",
+)
 
 
 def _normalize_team_name(name: str) -> str:
@@ -37,16 +46,7 @@ def _latest_projection_dir() -> str:
 
 def _load_training_frame() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     latest_dir = _latest_projection_dir()
-    frame = pd.read_csv(
-        os.path.join(
-            ROOT,
-            "data",
-            "external",
-            "current_season",
-            "2026-03-15",
-            "current_season_external_competition_aligned_2026.csv",
-        )
-    ).copy()
+    frame = pd.read_csv(CURRENT_SEASON_PATH).copy()
     frame["Team"] = frame["competition_team_comp"].fillna(frame.get("competition_team"))
     frame["team_key"] = frame["Team"].map(_normalize_team_name)
 
@@ -74,15 +74,22 @@ def _load_training_frame() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd
         on="team_key",
         how="left",
     )
+    frame["source_count"] = frame[["tr_line", "cbs_line", "bm_line"]].notna().sum(axis=1)
+    frame["field_target"] = (frame["source_count"] >= 1).astype(int)
+    frame["seed_target_avg"] = frame[["tr_line", "cbs_line", "bm_line"]].mean(axis=1)
+    frame["seed_target_wtd"] = (
+        0.25 * frame["tr_line"].fillna(0)
+        + 0.375 * frame["cbs_line"].fillna(0)
+        + 0.375 * frame["bm_line"].fillna(0)
+    ) / (
+        0.25 * frame["tr_line"].notna()
+        + 0.375 * frame["cbs_line"].notna()
+        + 0.375 * frame["bm_line"].notna()
+    ).replace(0, pd.NA)
     return frame, tr, cbs, bm
 
 
-def _fit_proxy_model(frame: pd.DataFrame) -> tuple[Pipeline, pd.DataFrame]:
-    frame = frame.copy()
-    frame["source_count"] = frame[["tr_line", "cbs_line", "bm_line"]].notna().sum(axis=1)
-    frame["target_line"] = frame[["tr_line", "cbs_line", "bm_line"]].mean(axis=1)
-    frame.loc[frame["source_count"] == 0, "target_line"] = 99.0
-
+def _build_preprocessor(frame: pd.DataFrame) -> tuple[ColumnTransformer, list[str]]:
     feature_cols = [
         "Team",
         "Conference",
@@ -104,12 +111,10 @@ def _fit_proxy_model(frame: pd.DataFrame) -> tuple[Pipeline, pd.DataFrame]:
         "adjde",
         "barthag",
         "wab",
+        "source_count",
     ]
     feature_cols = [c for c in feature_cols if c in frame.columns]
-    X = frame[feature_cols]
-    y = frame["target_line"]
-
-    categorical_cols = [c for c in ["Team", "Conference"] if c in X.columns]
+    categorical_cols = [c for c in ["Team", "Conference"] if c in feature_cols]
     numeric_cols = [c for c in feature_cols if c not in categorical_cols]
 
     preprocessor = ColumnTransformer(
@@ -127,22 +132,62 @@ def _fit_proxy_model(frame: pd.DataFrame) -> tuple[Pipeline, pd.DataFrame]:
             ),
         ]
     )
+    return preprocessor, feature_cols
 
-    model = GradientBoostingRegressor(
-        random_state=42,
-        n_estimators=500,
-        max_depth=3,
-        learning_rate=0.05,
-        subsample=0.8,
+
+def _fit_models(frame: pd.DataFrame, feature_cols: list[str], preprocessor: ColumnTransformer):
+    X = frame[feature_cols]
+
+    field_model = Pipeline(
+        [
+            ("preprocessor", clone(preprocessor)),
+            (
+                "model",
+                ExtraTreesClassifier(
+                    random_state=42,
+                    n_estimators=800,
+                    class_weight="balanced",
+                ),
+            ),
+        ]
     )
-    pipeline = Pipeline([("preprocessor", preprocessor), ("model", model)])
-    pipeline.fit(X, y)
-    return pipeline, X
+    field_model.fit(X, frame["field_target"])
+
+    seed_train = frame[frame["seed_target_avg"].notna()].copy()
+    seed_train["seed_target_avg"] = seed_train["seed_target_avg"].copy()
+    seed_train.loc[seed_train["source_count"] == 1, "seed_target_avg"] += 0.5
+
+    seed_model = Pipeline(
+        [
+            ("preprocessor", clone(preprocessor)),
+            (
+                "model",
+                GradientBoostingRegressor(
+                    random_state=42,
+                    n_estimators=500,
+                    max_depth=3,
+                    learning_rate=0.05,
+                    subsample=0.8,
+                ),
+            ),
+        ]
+    )
+    seed_model.fit(seed_train[feature_cols], seed_train["seed_target_avg"])
+    return field_model, seed_model
 
 
-def _build_submission(frame: pd.DataFrame, predictions: pd.Series) -> pd.DataFrame:
+def _build_submission(
+    frame: pd.DataFrame,
+    feature_cols: list[str],
+    field_model: Pipeline,
+    seed_model: Pipeline,
+) -> pd.DataFrame:
+    X = frame[feature_cols]
+    field_prob = field_model.predict_proba(X)[:, 1]
+    seed_pred = seed_model.predict(X)
+
     submission = frame[["RecordID", "Team", "team_key"]].copy()
-    submission["score"] = predictions
+    submission["score"] = seed_pred - 8.0 * field_prob
     field = submission.sort_values(["score", "Team"]).head(68).copy()
     field["Overall Seed"] = range(1, 69)
     submission = submission.merge(field[["team_key", "Overall Seed"]], on="team_key", how="left")
@@ -170,9 +215,9 @@ def _print_source_rmse(submission: pd.DataFrame, tr: pd.DataFrame, cbs: pd.DataF
 
 def main() -> None:
     frame, tr, cbs, bm = _load_training_frame()
-    pipeline, X = _fit_proxy_model(frame)
-    predictions = pipeline.predict(X)
-    submission = _build_submission(frame, predictions)
+    preprocessor, feature_cols = _build_preprocessor(frame)
+    field_model, seed_model = _fit_models(frame, feature_cols, preprocessor)
+    submission = _build_submission(frame, feature_cols, field_model, seed_model)
 
     out_path = os.path.join(ROOT, "submissions", "submission_public_proxy_model.csv")
     submission[["RecordID", "Overall Seed"]].to_csv(out_path, index=False)
