@@ -83,6 +83,7 @@ def prepare_data(include_non_tournament: bool = False):
     try:
         from src.core.external_data import merge_external_features
         df = merge_external_features(df)
+        df = create_features(df)
     except (ImportError, FileNotFoundError) as e:
         print(f"  (Skipping external data: {e})")
 
@@ -144,6 +145,7 @@ def prepare_test_data(training_columns: list):
     try:
         from src.core.external_data import merge_external_features
         df = merge_external_features(df)
+        df = create_features(df)
     except (ImportError, FileNotFoundError) as e:
         print(f"  (Skipping external data: {e})")
 
@@ -160,6 +162,80 @@ def prepare_test_data(training_columns: list):
 
     print(f"  Test data ready: {X.shape[0]} samples, {X.shape[1]} features")
     return X, record_ids, test_df
+
+
+def _prepare_train_val_features(train_df: pd.DataFrame, val_df: pd.DataFrame):
+    """Prepare aligned feature matrices for train/validation splits."""
+    cols_to_drop = [c for c in [TARGET_COL] + DROP_COLS if c in train_df.columns]
+    if 'season' in train_df.columns:
+        cols_to_drop.append('season')
+    if 'conference' in train_df.columns:
+        cols_to_drop.append('conference')
+
+    train_X = train_df.drop(columns=cols_to_drop)
+    val_drop_cols = [c for c in cols_to_drop if c in val_df.columns]
+    val_X = val_df.drop(columns=val_drop_cols)
+
+    train_X = train_X.copy()
+    val_X = val_X.copy()
+
+    numeric_cols = train_X.select_dtypes(include=np.number).columns
+    medians = train_X[numeric_cols].median()
+    train_X[numeric_cols] = train_X[numeric_cols].fillna(medians)
+    val_numeric = [c for c in numeric_cols if c in val_X.columns]
+    val_X[val_numeric] = val_X[val_numeric].fillna(medians[val_numeric])
+
+    train_X = encode_categoricals(train_X)
+    train_X = select_features(train_X)
+    val_X = encode_categoricals(val_X, training_columns=train_X.columns.tolist())
+    val_X = select_features(val_X, features=train_X.columns.tolist())
+
+    return train_X, val_X
+
+
+def run_kaggle_style_temporal_cv(model_name: str):
+    """Leaderboard-style proxy CV on all rows with non-tournament targets as 0."""
+    print("Loading training data for Kaggle-style CV...")
+    df = load_training_data()
+    df = clean_data(df)
+    df = create_features(df)
+
+    try:
+        from src.core.external_data import merge_external_features
+        df = merge_external_features(df)
+        df = create_features(df)
+    except (ImportError, FileNotFoundError) as e:
+        print(f"  (Skipping external data: {e})")
+
+    seasons = sorted(df['season'].dropna().unique())
+    ModelClass = load_model_class(model_name)
+    from src.core.evaluate import compute_rmse
+
+    fold_scores = []
+    for held_out in seasons:
+        train_df = df[df['season'] != held_out].copy()
+        val_df = df[df['season'] == held_out].copy()
+
+        train_tourn = train_df[train_df[TARGET_COL].notna()].copy()
+        y_train = train_tourn[TARGET_COL]
+        y_val = val_df[TARGET_COL].fillna(0)
+
+        X_train, X_val = _prepare_train_val_features(train_tourn, val_df)
+
+        model = ModelClass()
+        model.train(X_train, y_train)
+        preds = model.predict(X_val)
+
+        # Leaderboard proxy: non-tournament teams contribute zeros to the public
+        # score, so treat their held-out targets/predictions as 0 here as well.
+        preds = np.where(val_df[TARGET_COL].notna(), preds, 0.0)
+        score = compute_rmse(y_val, preds)
+        fold_scores.append(score)
+        print(f"  Season {held_out}: Kaggle-style RMSE = {score:.4f} (n={len(val_df)})")
+
+    print("\nKaggle-style temporal CV:")
+    print(f"  Mean RMSE: {np.mean(fold_scores):.4f} +/- {np.std(fold_scores):.4f}")
+    print(f"  Fold scores: {[f'{s:.4f}' for s in fold_scores]}")
 
 
 def run_single(model_name: str, cv_folds: int = 5, use_temporal_cv: bool = False):
@@ -305,6 +381,8 @@ def main():
     parser.add_argument('--submit', action='store_true', help='Generate submission CSV')
     parser.add_argument('--tune', action='store_true', help='Run hyperparameter tuning')
     parser.add_argument('--n-trials', type=int, default=50, help='Tuning trials')
+    parser.add_argument('--kaggle-style-cv', action='store_true',
+                        help='Leaderboard-style temporal CV on all rows with zero handling')
 
     args = parser.parse_args()
 
@@ -313,6 +391,8 @@ def main():
     elif args.model:
         if args.tune:
             run_tune(args.model, n_trials=args.n_trials)
+        elif args.kaggle_style_cv:
+            run_kaggle_style_temporal_cv(args.model)
         else:
             model, rmse, training_columns, X, y = run_single(
                 args.model, cv_folds=args.cv, use_temporal_cv=args.temporal_cv
