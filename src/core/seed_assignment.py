@@ -134,11 +134,26 @@ def constrained_seed_assignment(
     """
     predictions = np.zeros(len(test_df))
 
-    # Identify tournament vs non-tournament test teams
-    is_tournament = test_df['bid_type'].notna()
-    non_tourn_count = (~is_tournament).sum()
-    tourn_count = is_tournament.sum()
-    print(f"  Constrained assignment: {tourn_count} tournament, {non_tourn_count} non-tournament")
+    # Identify tournament vs non-tournament test teams. For live-season snapshots,
+    # bid_type may be entirely unknown, so infer the 68-team field from the best
+    # raw model ranks within each season.
+    has_known_bids = 'bid_type' in test_df.columns and test_df['bid_type'].notna().any()
+    if has_known_bids:
+        is_tournament = test_df['bid_type'].notna().copy()
+        non_tourn_count = (~is_tournament).sum()
+        tourn_count = is_tournament.sum()
+        print(f"  Constrained assignment: {tourn_count} tournament, {non_tourn_count} non-tournament")
+    else:
+        is_tournament = pd.Series(False, index=test_df.index)
+        for season in sorted(test_df['season'].unique()):
+            season_idx = test_df.index[test_df['season'] == season].tolist()
+            ranked_idx = sorted(season_idx, key=lambda idx: raw_predictions[idx])
+            for idx in ranked_idx[:min(68, len(ranked_idx))]:
+                is_tournament.loc[idx] = True
+        non_tourn_count = (~is_tournament).sum()
+        tourn_count = is_tournament.sum()
+        print(f"  Constrained assignment: inferred {tourn_count} tournament teams, "
+              f"{non_tourn_count} non-tournament (bid types unavailable)")
 
     if barttorvik_stats is not None:
         print(f"  Disambiguation: composite scoring (0.69*ens + 0.31*netm + AL penalty)")

@@ -8,7 +8,7 @@ import numpy as np
 # Top features ranked by permutation importance (temporal CV with GBR).
 # Determined empirically: 8-12 features optimal for 249 training samples.
 SELECTED_FEATURES = [
-    'wab', 'net_pct_season', 'conf_avg_net', 'barthag', 'net_rank', 'prevnet',
+    'wab_pct_season', 'net_pct_season', 'conf_avg_net', 'barthag_pct_season', 'net_rank', 'prevnet',
     'netsos', 'q1_win_pct', 'is_at_large', 'total_q1q2_wins',
     'total_q3q4_losses', 'conf_wins',
 ]
@@ -88,10 +88,24 @@ def create_features(df: pd.DataFrame) -> pd.DataFrame:
 
     if 'season' in df.columns and 'wab' in df.columns:
         df['wab_pct_season'] = df.groupby('season')['wab'].rank(pct=True)
+    elif 'season' in df.columns and 'wn_wab_rank' in df.columns:
+        season_max = df.groupby('season')['wn_wab_rank'].transform('max')
+        df['wab_pct_season'] = np.where(
+            season_max > 0,
+            (season_max - df['wn_wab_rank'] + 1) / season_max,
+            np.nan,
+        )
 
     if 'season' in df.columns and 'barthag' in df.columns:
         df['barthag_pct_season'] = df.groupby('season')['barthag'].rank(
             pct=True, ascending=False)
+    elif 'season' in df.columns and 'wn_t_rank' in df.columns:
+        season_max = df.groupby('season')['wn_t_rank'].transform('max')
+        df['barthag_pct_season'] = np.where(
+            season_max > 0,
+            (season_max - df['wn_t_rank'] + 1) / season_max,
+            np.nan,
+        )
 
     # --- Efficiency margin ---
     if 'adjoe' in df.columns and 'adjde' in df.columns:

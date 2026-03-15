@@ -6,10 +6,12 @@ Download: kaggle datasets download -d andrewsundberg/college-basketball-dataset 
 """
 
 import os
+from typing import Optional
 import pandas as pd
 import numpy as np
 
 EXTERNAL_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'external')
+CURRENT_SEASON_DIR = os.path.join(EXTERNAL_DIR, 'current_season')
 
 # Season label -> barttorvik file year
 _SEASON_FILE_MAP = {
@@ -238,6 +240,62 @@ def _load_year_file(year_suffix: int) -> pd.DataFrame:
     return df
 
 
+def _find_latest_current_season_file() -> Optional[str]:
+    """Return the latest competition-aligned 2025-26 external snapshot path."""
+    if not os.path.isdir(os.path.abspath(CURRENT_SEASON_DIR)):
+        return None
+
+    dated_dirs = sorted(
+        d for d in os.listdir(os.path.abspath(CURRENT_SEASON_DIR))
+        if os.path.isdir(os.path.join(os.path.abspath(CURRENT_SEASON_DIR), d))
+    )
+    for dirname in reversed(dated_dirs):
+        path = os.path.join(
+            os.path.abspath(CURRENT_SEASON_DIR),
+            dirname,
+            'current_season_external_competition_aligned_2026.csv',
+        )
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def _merge_current_season_features(season_df: pd.DataFrame, team_col: str) -> pd.DataFrame:
+    """Merge current-season external fields from the competition-aligned snapshot."""
+    path = _find_latest_current_season_file()
+    if path is None:
+        return season_df
+
+    current = pd.read_csv(path)
+    if 'competition_team' not in current.columns:
+        return season_df
+
+    keep_cols = [
+        'competition_team', 'season', 'wn_wab_rank', 'wn_t_rank', 'wn_kenpom_rank',
+        'wn_bpi_rank', 'wn_sor_rank', 'wn_kpi_rank', 'srs', 'sos',
+        'games', 'wins', 'losses', 'home_wins', 'home_losses',
+        'away_wins', 'away_losses', 'points_for', 'points_against',
+        'fg_pct', 'three_p_pct', 'ft_pct', 'ast', 'stl', 'blk', 'tov',
+        'adjoe', 'adjde', 'barthag', 'wab', 'adj_t', 'efg_o', 'efg_d',
+        'tor', 'tord', 'orb', 'drb', 'ftr', 'ftrd', '2p_o', '2p_d', '3p_o', '3p_d',
+    ]
+    keep_cols = [c for c in keep_cols if c in current.columns]
+    current = current[keep_cols].copy()
+    current = current.dropna(subset=['competition_team'])
+    current = current.drop_duplicates(subset=['competition_team', 'season'])
+
+    merged = season_df.merge(
+        current,
+        left_on=[team_col, 'season'],
+        right_on=['competition_team', 'season'],
+        how='left',
+        suffixes=('', '_current'),
+    )
+    if 'competition_team' in merged.columns:
+        merged = merged.drop(columns=['competition_team'])
+    return merged
+
+
 def get_traditional_seeds(df: pd.DataFrame) -> dict:
     """Extract traditional NCAA seeds (1-16) from barttorvik for all teams.
 
@@ -378,6 +436,13 @@ def merge_external_features(df: pd.DataFrame) -> pd.DataFrame:
 
         season_df = df[df['season'] == season].copy()
         total_rows += len(season_df)
+
+        if season == '2025-26':
+            season_df = _merge_current_season_features(season_df, team_col)
+            matched_rows = season_df['wn_wab_rank'].notna().sum() if 'wn_wab_rank' in season_df.columns else 0
+            total_matched += matched_rows
+            result_dfs.append(season_df)
+            continue
 
         try:
             ext = _load_year_file(year_suffix)

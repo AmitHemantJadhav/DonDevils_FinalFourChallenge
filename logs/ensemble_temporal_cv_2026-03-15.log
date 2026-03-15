@@ -1,0 +1,43 @@
+Loading training data...
+  External data: matched 1341/1353 teams (99.1%)
+  Filtering to tournament teams: 249 of 1353 rows
+  Data ready: 249 samples, 12 features
+
+==================================================
+Running: ensemble
+==================================================
+[ensemble] Meta-learner weights: GBR=-0.028, XGB=0.001, LGBM=-3.969, intercept=207.825, alpha=0.01
+[ensemble] Trained stacking ensemble of 3 models
+
+Temporal CV (leave-one-season-out):
+[ensemble] Meta-learner weights: GBR=0.629, XGB=0.226, LGBM=0.164, intercept=-0.688, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+  Season 2020-21: RMSE = 5.3076 (n=50)
+[ensemble] Meta-learner weights: GBR=1.025, XGB=-0.146, LGBM=0.128, intercept=-0.228, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+  Season 2021-22: RMSE = 4.0500 (n=51)
+[ensemble] Meta-learner weights: GBR=0.283, XGB=0.225, LGBM=0.513, intercept=-0.598, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+  Season 2022-23: RMSE = 4.7213 (n=47)
+[ensemble] Meta-learner weights: GBR=0.428, XGB=0.185, LGBM=0.413, intercept=-0.915, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+  Season 2023-24: RMSE = 4.4591 (n=47)
+[ensemble] Meta-learner weights: GBR=0.654, XGB=0.040, LGBM=0.328, intercept=-0.598, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+  Season 2024-25: RMSE = 5.2116 (n=54)
+[ensemble] Meta-learner weights: GBR=0.758, XGB=0.247, LGBM=0.012, intercept=-0.581, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] RMSE: 5.5359
+
+Cross-validation (Temporal):
+  Mean RMSE: 4.7499 +/- 0.4689
+    2020-21: 5.3076
+    2021-22: 4.0500
+    2022-23: 4.7213
+    2023-24: 4.4591
+    2024-25: 5.2116
+
+Holdout RMSE: 5.5359
+[ensemble] Meta-learner weights: GBR=0.240, XGB=0.459, LGBM=0.319, intercept=-0.493, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] Model saved to models/ensemble/results/model.pkl

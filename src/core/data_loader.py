@@ -3,6 +3,8 @@ data_loader.py - Load and validate competition CSV files.
 """
 
 import os
+from glob import glob
+from typing import List, Optional
 import pandas as pd
 
 
@@ -16,12 +18,48 @@ EXPECTED_FILES = {
     'dictionary': 'FFAC Data Dictionary.xlsx',
 }
 
+FALLBACK_PATTERNS = {
+    'train': ['NCAA_Seed_Training_Set*.csv'],
+    'test': ['NCAA_Seed_Test_Set*.csv'],
+    'template': ['submission_template*.csv'],
+    'dictionary': ['FFAC Data Dictionary*.xlsx'],
+}
+
+
+def _candidate_dirs(raw: bool = True) -> List[str]:
+    """Return directories to search for competition files."""
+    base_dir = os.path.abspath(DATA_RAW_DIR if raw else DATA_PROCESSED_DIR)
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    return [base_dir, repo_root]
+
+
+def _resolve_existing_path(key: str, raw: bool = True) -> Optional[str]:
+    """Resolve a data file by exact expected name first, then fallback patterns."""
+    for directory in _candidate_dirs(raw):
+        exact_path = os.path.join(directory, EXPECTED_FILES.get(key, key))
+        if os.path.exists(exact_path):
+            return exact_path
+
+    patterns = FALLBACK_PATTERNS.get(key, [])
+    for directory in _candidate_dirs(raw):
+        matches = []
+        for pattern in patterns:
+            matches.extend(glob(os.path.join(directory, pattern)))
+        if matches:
+            return sorted(matches)[-1]
+
+    return None
+
 
 def get_data_path(key: str, raw: bool = True) -> str:
     """Get absolute path to a data file."""
-    base_dir = DATA_RAW_DIR if raw else DATA_PROCESSED_DIR
+    resolved = _resolve_existing_path(key, raw=raw)
+    if resolved is not None:
+        return os.path.abspath(resolved)
+
+    base_dir = os.path.abspath(DATA_RAW_DIR if raw else DATA_PROCESSED_DIR)
     filename = EXPECTED_FILES.get(key, key)
-    return os.path.abspath(os.path.join(base_dir, filename))
+    return os.path.join(base_dir, filename)
 
 
 def load_training_data() -> pd.DataFrame:

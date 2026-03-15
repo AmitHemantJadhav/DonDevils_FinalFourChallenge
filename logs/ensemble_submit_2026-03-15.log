@@ -1,0 +1,58 @@
+Loading training data...
+  External data: matched 1341/1353 teams (99.1%)
+  Filtering to tournament teams: 249 of 1353 rows
+  Data ready: 249 samples, 12 features
+
+==================================================
+Running: ensemble
+==================================================
+[ensemble] Meta-learner weights: GBR=-0.028, XGB=0.001, LGBM=-3.969, intercept=207.825, alpha=0.01
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] Meta-learner weights: GBR=0.573, XGB=0.412, LGBM=0.042, intercept=-0.712, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] Meta-learner weights: GBR=0.602, XGB=0.183, LGBM=0.233, intercept=-0.551, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] Meta-learner weights: GBR=0.576, XGB=0.126, LGBM=0.314, intercept=-0.504, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] Meta-learner weights: GBR=0.567, XGB=-0.017, LGBM=0.470, intercept=-0.607, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] Meta-learner weights: GBR=0.201, XGB=0.024, LGBM=0.811, intercept=-1.131, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] Meta-learner weights: GBR=0.758, XGB=0.247, LGBM=0.012, intercept=-0.581, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] RMSE: 5.5359
+
+Cross-validation (5-fold):
+  Mean RMSE: 4.8267 +/- 0.5954
+  Fold scores: ['5.6688', '4.2293', '4.1163', '4.8438', '5.2755']
+
+Holdout RMSE: 5.5359
+[ensemble] Meta-learner weights: GBR=0.240, XGB=0.459, LGBM=0.319, intercept=-0.493, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+[ensemble] Model saved to models/ensemble/results/model.pkl
+
+Generating submission...
+Loading test data...
+  External data: matched 0/365 teams (0.0%)
+  Test data ready: 365 samples, 12 features
+  Training 5 ensemble seeds for averaging...
+[ensemble] Meta-learner weights: GBR=0.240, XGB=0.459, LGBM=0.319, intercept=-0.493, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+    Seed 42: mean pred = 56.35
+[ensemble] Meta-learner weights: GBR=0.149, XGB=0.604, LGBM=0.268, intercept=-0.630, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+    Seed 49: mean pred = 57.23
+[ensemble] Meta-learner weights: GBR=0.420, XGB=0.200, LGBM=0.406, intercept=-0.822, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+    Seed 56: mean pred = 55.18
+[ensemble] Meta-learner weights: GBR=0.521, XGB=0.429, LGBM=0.065, intercept=-0.407, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+    Seed 63: mean pred = 55.85
+[ensemble] Meta-learner weights: GBR=0.400, XGB=0.442, LGBM=0.174, intercept=-0.407, alpha=100.00
+[ensemble] Trained stacking ensemble of 3 models
+    Seed 70: mean pred = 56.73
+  Averaged predictions: mean = 56.27, std = 9.79
+  Constrained assignment: 0 tournament, 365 non-tournament
+  Disambiguation: composite scoring (0.69*ens + 0.31*netm + AL penalty)
+  Constrained predictions: 365 zeros, 0 tournament
+Submission saved to /Users/abhisaranand/Projects/DonDevils_FinalFourChallenge/src/core/../../submissions/submission.csv (365 predictions)
