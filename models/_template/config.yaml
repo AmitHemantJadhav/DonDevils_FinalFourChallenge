@@ -1,0 +1,8 @@
+# Model Hyperparameters
+# Edit these values to tune your algorithm
+
+# Example parameters (replace with your algorithm's params):
+# n_estimators: 100
+# max_depth: 6
+# learning_rate: 0.1
+# random_state: 42

@@ -1,0 +1,11 @@
+# Optuna-tuned hyperparameters
+n_estimators: 268
+max_depth: 5
+learning_rate: 0.0141
+subsample: 0.663
+colsample_bytree: 0.368
+num_leaves: 15
+min_child_samples: 20
+reg_alpha: 0.736
+reg_lambda: 0.249
+random_state: 42

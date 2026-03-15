@@ -1,0 +1,5 @@
+# Ensemble weights: [GBR, XGBoost, LightGBM] - Optuna-tuned
+weights: [0.55, 0.35, 0.10]
+
+# Blend alpha per model: raw vs rank-scaled prediction
+blend_alphas: [0.444, 0.522, 0.540]

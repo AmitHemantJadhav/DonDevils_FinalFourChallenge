@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FFAC 26 — Data Explorer</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>🏀 FFAC 26</h1>
+                <span class="header-subtitle">NCAA Seed Prediction — Data Explorer</span>
+            </div>
+            <div class="header-right">
+                <label class="file-upload" id="uploadArea">
+                    <input type="file" id="csvInput" accept=".csv" />
+                    <span class="upload-btn">📂 Load CSV</span>
+                </label>
+                <span class="file-status" id="fileStatus">No file loaded</span>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <nav class="tabs">
+            <button class="tab active" data-tab="overview">Overview</button>
+            <button class="tab" data-tab="distributions">Distributions</button>
+            <button class="tab" data-tab="correlations">Correlations</button>
+            <button class="tab" data-tab="seeds">Seed Analysis</button>
+            <button class="tab" data-tab="explorer">Data Explorer</button>
+        </nav>
+
+        <!-- Tab Content -->
+        <main class="content">
+            <!-- Empty State -->
+            <div id="emptyState" class="empty-state">
+                <div class="empty-icon">📊</div>
+                <h2>Load a dataset to get started</h2>
+                <p>Drop your <code>NCAA_Seed_Training_Set.csv</code> file above to explore the data.</p>
+                <p class="hint">Files from <code>data/raw/</code> in your project directory</p>
+            </div>
+
+            <!-- Overview Tab -->
+            <div id="tab-overview" class="tab-content" style="display:none;">
+                <div class="metrics-grid" id="metricsGrid"></div>
+                <div class="card">
+                    <h3>Missing Values</h3>
+                    <div class="chart-container">
+                        <canvas id="missingChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Column Types</h3>
+                    <div id="columnTypes" class="column-types-grid"></div>
+                </div>
+                <div class="card">
+                    <h3>Sample Data (First 10 Rows)</h3>
+                    <div class="table-wrapper">
+                        <table id="sampleTable"></table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Distributions Tab -->
+            <div id="tab-distributions" class="tab-content" style="display:none;">
+                <div class="controls">
+                    <label>Column:
+                        <select id="distColumn"></select>
+                    </label>
+                    <label>Chart Type:
+                        <select id="distType">
+                            <option value="histogram">Histogram</option>
+                            <option value="box">Box Plot (stats)</option>
+                        </select>
+                    </label>
+                </div>
+                <div class="card">
+                    <h3 id="distTitle">Distribution</h3>
+                    <div class="chart-container chart-lg">
+                        <canvas id="distChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Summary Statistics</h3>
+                    <div id="distStats" class="stats-grid"></div>
+                </div>
+            </div>
+
+            <!-- Correlations Tab -->
+            <div id="tab-correlations" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h3>Correlation Matrix (Numeric Columns)</h3>
+                    <div class="chart-container chart-xl">
+                        <canvas id="corrChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Top Correlations with Target</h3>
+                    <div id="topCorrelations"></div>
+                </div>
+            </div>
+
+            <!-- Seed Analysis Tab -->
+            <div id="tab-seeds" class="tab-content" style="display:none;">
+                <div class="card">
+                    <h3>Seed Distribution</h3>
+                    <div class="chart-container chart-lg">
+                        <canvas id="seedDistChart"></canvas>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Average Stats by Seed Tier</h3>
+                    <div class="controls">
+                        <label>Metric:
+                            <select id="seedMetric"></select>
+                        </label>
+                    </div>
+                    <div class="chart-container chart-lg">
+                        <canvas id="seedMetricChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Explorer Tab -->
+            <div id="tab-explorer" class="tab-content" style="display:none;">
+                <div class="controls">
+                    <label>Search:
+                        <input type="text" id="explorerSearch" placeholder="Filter rows..." />
+                    </label>
+                    <label>Rows per page:
+                        <select id="explorerPageSize">
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </label>
+                    <button class="btn-secondary" id="exportCsv">⬇ Export Filtered CSV</button>
+                </div>
+                <div class="card">
+                    <div class="table-wrapper">
+                        <table id="explorerTable"></table>
+                    </div>
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
