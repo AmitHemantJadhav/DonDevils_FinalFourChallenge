@@ -18,6 +18,7 @@ _SEASON_FILE_MAP = {
     '2022-23': 23,
     '2023-24': 24,
     '2024-25': 25,
+    '2025-26': 26,
 }
 
 # Team name normalization: competition name -> barttorvik name

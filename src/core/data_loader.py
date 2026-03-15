@@ -11,7 +11,7 @@ DATA_PROCESSED_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'data',
 
 EXPECTED_FILES = {
     'train': 'NCAA_Seed_Training_Set2.0.csv',
-    'test': 'NCAA_Seed_Test_Set2.0.csv',
+    'test': 'NCAA_Seed_Test_Set_2026_20260315.csv',
     'template': 'submission_template2.0.csv',
     'dictionary': 'FFAC Data Dictionary.xlsx',
 }
